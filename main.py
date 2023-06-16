@@ -1,7 +1,6 @@
 from implementation import *
-import numpy as np
 from random import randrange
-from time import sleep, perf_counter as now
+from time import perf_counter as now
 
 def newid(): return randrange(2**32)
 trainer_id = newid()
@@ -10,16 +9,14 @@ trainer_id = newid()
 def main():
 	global trainer_id
 
-	t = 0
 	then = now()
 	for n in range(10_000_000):
-		if now() - then > 2:
+		if now() > then + 2:
 			print(n)
 			then = now()
 
-		if n // 100_000 > t:
+		if n % 100_000 == 0:
 			trainer_id = newid()
-			t = n // 100_000
 
 		try:
 			test_function()
@@ -39,12 +36,12 @@ def test_function():
 	# 	if is_shiny(personality, trainer_id): break
 
 	old_nature = personality % 25
-	while (wanted := randrange(25)) == old_nature: ...
+	wanted_nature = (old_nature + randrange(24)) % 25
 
 
-	new_personality = change_nature(wanted, personality)
+	new_personality = change_nature(wanted_nature, personality)
 
-	assert(nature(new_personality) == nature(wanted))
+	assert(nature(new_personality) == nature(wanted_nature))
 	assert(gender(personality, g_thresh) == gender(new_personality, g_thresh))
 	assert(is_shiny(personality, trainer_id) == is_shiny(new_personality, trainer_id))
 
@@ -68,7 +65,7 @@ def change_nature(wanted_nature:int, personality:int) -> int:
 	The shiny value depends on the xor of the upper and lower halves of the
 	personality. The lower byte of the shiny value is thus the xor of the
 	personality's second and fourth bytes. Gender depends only on the
-	fourth byte, and nature equals the full personality mod 25.
+	fourth byte. The nature is equal to the full personality mod 25.
 
 	By changing only the second byte in the personality we can change
 	the nature without even touching the gender. By keeping track of
@@ -77,7 +74,7 @@ def change_nature(wanted_nature:int, personality:int) -> int:
 	Does not preserve: Unown's letter, Wurmple's evolution, Spinda's spots.
 	"""
 
-	# Bit shifting modular values shuffles around their order.
+	# Bit shifting modular values will shuffle around their order.
 	# Making a map from the desired overall value to the corresponding bit shifted value.
 	forward = [(n << 16) % 25 for n in range(25)]
 	backward = [forward.index(n) for n in range(25)]
@@ -90,10 +87,10 @@ def change_nature(wanted_nature:int, personality:int) -> int:
 
 	# Despite the first precaution the shiny value could still exceed 655.
 	# This is prevented by making sure the byte's highest bit is zero in the shiny value.
-	# If this bit is missing -and- the 6 lowest bits don't increase by too much
-	# A shiny personality will never become non-shiny.
+	# If this bit is zero AND the 6 lowest bits don't increase by too much,
+	# a shiny personality will never become non-shiny.
 	problem_bit = 1 << 7						# 00000000 10000000
-	the_problem = shiny_val(personality) & problem_bit
+	the_problem = shiny_value(personality, trainer_id) & problem_bit
 
 	new_personality = personality ^ (the_problem << 16)
 
@@ -116,6 +113,7 @@ def change_nature(wanted_nature:int, personality:int) -> int:
 
 
 # Vectorized testing in numpy.
+import numpy as np
 
 def test_all_shinies():
 	starts = all_shiny_personalities().astype(np.uint32)
@@ -137,7 +135,7 @@ def change_nature_vectorized(wanted, personality):
 	might_overflow = (dangerous_bits > overflow_threshold)
 
 	problem_bit = 1 << 7
-	the_problem = shiny_val(personality) & problem_bit != 0
+	the_problem = shiny_value(personality, trainer_id) & problem_bit != 0
 
 	new_personailty = personality.copy()
 	new_personailty[the_problem] ^= problem_bit << 16
@@ -152,7 +150,7 @@ def change_nature_vectorized(wanted, personality):
 		for p in (personality, new_personailty):
 			example = p[~shiny_mask][0]
 			prant(example)
-			prant(shiny_val(example), bits=16)
+			prant(shiny_value(example, trainer_id), bits=16)
 
 	return new_personailty
 
@@ -191,6 +189,7 @@ def binary(value:int, bits:int=32) -> str:
 	byte_list = [bin_string[i:i+8] for i in range(0, bits, 8)]
 	return " ".join(byte_list)
 
+
 def prant(*objects, bits:int=32):
 	"""Print multiple things on separate lines,
 	using pretty binary for ints."""
@@ -200,6 +199,7 @@ def prant(*objects, bits:int=32):
 			print(binary(o, bits))
 		else:
 			print(o)
+
 
 def print_all_qualities(personality):
 	from functools import partial
@@ -211,14 +211,6 @@ def print_all_qualities(personality):
 	for function in (nature, is_shiny2, gender2, unown_letter, wurmple_evolution):
 		print(str(function(personality)).ljust(8), end=" ")
 	print()
-
-def shiny_val(personality:int) -> int:
-	p1 = (personality & h1) >> 16
-	p2 = (personality & h2)
-	t1 = (trainer_id & h1) >> 16
-	t2 = (trainer_id & h2)
-
-	return p1 ^ p2 ^ t1 ^ t2
 
 
 if __name__ == "__main__":

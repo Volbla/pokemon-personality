@@ -1,5 +1,6 @@
 from enum import Enum, auto
 
+
 # Byte masks (quarters).
 q4 = 255
 q3 = q4 << 8
@@ -9,6 +10,7 @@ q1 = q2 << 8
 h1 = q1 | q2
 h2 = q3 | q4
 
+
 class Gender(Enum):
 	Male = auto()
 	Female = auto()
@@ -16,6 +18,7 @@ class Gender(Enum):
 
 	def __str__(self) -> str:
 		return self.name
+
 
 class Gender_threshold(Enum):
 	Allmale = 0
@@ -26,6 +29,7 @@ class Gender_threshold(Enum):
 	Mostfemale = 225
 	Allfemale = 254
 	Genderless = 255
+
 
 LETTERS = "ABCDEFGHIJKLMNOPQRSTUVWXYZ!?"
 NATURES = (
@@ -42,7 +46,7 @@ def nature(personality:int) -> str:
 	return NATURES[personality % 25]
 
 
-def is_shiny(personality:int, trainer_id:int) -> bool:
+def shiny_value(personality:int, trainer_id:int) -> int:
 	"""Xor the upper and lower halves of both personality and trainer id."""
 
 	p1 = (personality & h1) >> 16
@@ -50,7 +54,11 @@ def is_shiny(personality:int, trainer_id:int) -> bool:
 	t1 = (trainer_id & h1) >> 16
 	t2 = (trainer_id & h2)
 
-	return p1 ^ p2 ^ t1 ^ t2 < SHINY_CHANCE
+	return p1 ^ p2 ^ t1 ^ t2
+
+
+def is_shiny(personality:int, trainer_id:int) -> bool:
+	return shiny_value(personality, trainer_id) < SHINY_CHANCE
 
 
 def gender(personality:int, species_threshold:Gender_threshold) -> Gender:
